@@ -29,11 +29,12 @@ app = FastAPI(title="Bizyvel IA - Facturación y Análisis")
 # 👇 Primero configurar CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:4200"],  # Frontend local
+    allow_origins=["*"],  # O la URL de tu frontend si quieres más seguridad
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # 👇 Luego incluir las rutas
 app.include_router(router)
