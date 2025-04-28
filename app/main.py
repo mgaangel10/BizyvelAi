@@ -473,7 +473,7 @@ async def asistente_ia_accion(
             }
 
             # 👇 METEMOS el ID directamente en la URL
-            spring_url = f"http://localhost:9000/usuario/generarRecomendaciones/{idNegocio}"
+            spring_url = f"https://celeraai-backend.onrender.com/usuario/generarRecomendaciones/{idNegocio}"
 
             response = requests.post(spring_url, json=payload, headers=headers)
             return response.json()
