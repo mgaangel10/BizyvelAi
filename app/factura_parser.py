@@ -5,9 +5,12 @@ import os
 from openai import OpenAI
 from .ventas_fake import obtener_venta_por_id  # Usa el punto si estás en /app
 
+from openai import OpenAI
+
 client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY")
 )
+
 
 def analizar_mensaje_factura(texto: str) -> dict:
     prompt = f"""

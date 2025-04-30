@@ -5,6 +5,10 @@ import fitz
 import pandas as pd
 import requests
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Header, Path
+from starlette.responses import StreamingResponse
+
+from .FacturaRequest import VerFactura
+
 
 from openai import OpenAI
 from pydantic import BaseModel
@@ -17,6 +21,7 @@ from .generar_factura_pdf import generar_pdf_cierre_ia
 from .generar_factura_pdf import generar_pdf_texto_ia
 from .generar_factura_pdf import extraer_correos_desde_excel
 from .enviar_factura import enviar_promocion_email
+from io import BytesIO
 
 from .pdf_contabilidad import generar_pdf_ia
 import os
@@ -45,47 +50,38 @@ class Mensaje(BaseModel):
     mensaje: str
 
 @app.post("/factura")
-async def generar_factura(mensaje: Mensaje):
+async def generar_factura_factura(request: VerFactura):
     try:
-        datos = analizar_mensaje_factura(mensaje.mensaje)
-        accion = "presupuesto" if "presupuesto" in mensaje.mensaje.lower() else "factura"
 
-        datos["NombreEmpresa"] = "Bizyvel S.A."
-        datos["cid"] = "C-987654"
-        datos["numeroAlbaran"] = 1203
-        datos["numeroFactura"] = f"F-{datetime.now().strftime('%Y%m%d')}-001"
 
-        subtotal = sum(p.get("cantidad", 0) * p.get("precio", 0) for p in datos.get("productos", []))
-        impuestos = round(subtotal * 0.21, 2)
-        total = round(subtotal + impuestos, 2)
+        datos = request.dict()
 
-        datos["subtotal"] = subtotal
-        datos["impuestos"] = impuestos
-        datos["total"] = total
+        nombre_pdf = f"factura_{datos['numeroFactura']}.pdf"
 
-        nombre_pdf = f"{accion}_{datos['numeroFactura']}.pdf"
+        # Puedes pasar todos los datos como están al generador de PDF
         crear_factura_pdf(datos, nombre_pdf)
-        enviar_factura_email(datos["email"], nombre_pdf)
+
+        # (opcional) Si tienes el email del cliente o un campo aparte
+        # enviar_factura_email(datos.get("clienteEmail"), nombre_pdf)
 
         return {
             "estado": "ok",
-            "accion": accion,
             "cliente": datos["cliente"],
-            "enviado_a": datos["email"],
             "archivo": nombre_pdf
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+@app.post("/factura/pdf")
+async def generar_factura_pdf(request: VerFactura):
+    buffer = BytesIO()
+    crear_factura_pdf(request.dict(), buffer)
+    buffer.seek(0)
 
-@app.post("/analizar-excel/")
-async def analizar_excel(file: UploadFile = File(...)):
-    try:
-        contenido = await file.read()
-        nombre = file.filename
-        resultado = analizar_archivo(nombre, contenido)
-        return {"resultado": resultado}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return StreamingResponse(buffer, media_type="application/pdf", headers={
+        "Content-Disposition": f"attachment; filename=factura_{request.numeroFactura}.pdf"
+    })
+
+
 
 @app.post("/contabilidad/analisis")
 async def analizar_contabilidad(file: UploadFile = File(...)):
@@ -570,7 +566,14 @@ async def asistente_ia_accion(
                     enviados += 1
                 except Exception as err:
                     print(f"❌ Error al enviar a {email}: {err}")
-            return {"accion": "enviar_promocion", "emails_enviados": enviados, "mensaje": texto_email}
+            return {
+                "accion": "consulta_fiscal",
+                "tipo": "respuesta_ia",
+                "datos": {
+                    "productos": []
+                },
+                "response": respuesta.choices[0].message.content.strip()
+            }
 
         elif accion == "consulta_fiscal":
             prompt_fiscal = f"Eres un asesor fiscal profesional. Responde esta consulta de forma clara:\n\n{mensaje}"
