@@ -466,7 +466,7 @@ async def asistente_ia_accion(
 
             # Construimos el body con el mensaje (como lo espera Spring Boot)
             payload = {
-                "mensaje": mensaje
+                "pregunta": mensaje
             }
 
             # 👇 METEMOS el ID directamente en la URL
